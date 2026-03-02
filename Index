@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .container {
+      text-align: center;
+      background: white;
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      max-width: 500px;
+      width: 90%;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .instructions {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    
+    #testArea {
+      width: 100%;
+      height: 300px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 20px;
+    }
+    
+    .waiting {
+      background: #e74c3c;
+      color: white;
+    }
+    
+    .ready {
+      background: #2ecc71;
+      color: white;
+    }
+    
+    .idle {
+      background: #3498db;
+      color: white;
+    }
+    
+    .results {
+      margin-top: 20px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+    }
+    
+    .result-item {
+      margin: 10px 0;
+      font-size: 18px;
+    }
+    
+    .average {
+      font-size: 24px;
+      color: #667eea;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+    
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 5px;
+      transition: background 0.3s;
+    }
+    
+    button:hover {
+      background: #5568d3;
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .message {
+      margin-top: 10px;
+      color: #2ecc71;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚡ Reaction Time Test</h1>
+    <p class="instructions">
+      Click the box as quickly as possible when it turns <strong>green</strong>. 
+      Complete 5 attempts for your average reaction time.
+    </p>
+    
+    <div id="testArea" class="idle" onclick="handleClick()">
+      Click to Start
+    </div>
+    
+    <div id="controls">
+      <button onclick="resetTest()">Reset Test</button>
+      <button id="saveBtn" onclick="saveToSheet()" disabled>Save to Sheet</button>
+    </div>
+    
+    <div id="results" class="results" style="display: none;">
+      <h3>Your Results:</h3>
+      <div id="resultsList"></div>
+      <div id="average" class="average"></div>
+    </div>
+    
+    <div id="message" class="message"></div>
+  </div>
+   <script>
+    let state = 'idle'; // idle, waiting, ready
+    let startTime = 0;
+    let timeout = null;
+    let attempts = [];
+    const MAX_ATTEMPTS = 5;
+    
+    function handleClick() {
+      const area = document.getElementById('testArea');
+      
+      if (state === 'idle') {
+        startWaiting();
+      } else if (state === 'waiting') {
+        // Clicked too early
+        clearTimeout(timeout);
+        state = 'idle';
+        area.className = 'idle';
+        area.textContent = 'Too early! Click to try again';
+        setTimeout(() => {
+          area.textContent = 'Click to Start';
+        }, 1500);
+      } else if (state === 'ready') {
+        recordReaction();
+      }
+    }
+    
+    function startWaiting() {
+      const area = document.getElementById('testArea');
+      state = 'waiting';
+      area.className = 'waiting';
+      area.textContent = 'Wait for green...';
+      
+      // Random delay between 2-5 seconds
+      const delay = Math.random() * 3000 + 2000;
+      
+      timeout = setTimeout(() => {
+        state = 'ready';
+        area.className = 'ready';
+        area.textContent = 'CLICK NOW!';
+        startTime = Date.now();
+      }, delay);
+    }
+    
+    function recordReaction() {
+      const reactionTime = Date.now() - startTime;
+      attempts.push(reactionTime);
+      
+      const area = document.getElementById('testArea');
+      area.className = 'idle';
+      
+      if (attempts.length < MAX_ATTEMPTS) {
+        area.textContent = `${reactionTime}ms - Click for attempt ${attempts.length + 1}`;
+        state = 'idle';
+      } else {
+        showResults();
+      }
+    }
+    
+    function showResults() {
+      const area = document.getElementById('testArea');
+      const resultsDiv = document.getElementById('results');
+      const resultsList = document.getElementById('resultsList');
+      const averageDiv = document.getElementById('average');
+      
+      area.style.display = 'none';
+      resultsDiv.style.display = 'block';
+      
+      // Display individual attempts
+      resultsList.innerHTML = attempts.map((time, index) => 
+        `<div class="result-item">Attempt ${index + 1}: ${time}ms</div>`
+      ).join('');
+      
+      // Calculate and display average
+      const average = Math.round(attempts.reduce((a, b) => a + b, 0) / attempts.length);
+      averageDiv.textContent = `Average: ${average}ms`;
+      
+      // Enable save button
+      document.getElementById('saveBtn').disabled = false;
+      
+      state = 'complete';
+    }
+    
+    function resetTest() {
+      attempts = [];
+      state = 'idle';
+      clearTimeout(timeout);
+      
+      const area = document.getElementById('testArea');
+      area.style.display = 'flex';
+      area.className = 'idle';
+      area.textContent = 'Click to Start';
+      
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('saveBtn').disabled = true;
+      document.getElementById('message').textContent = '';
+    }
+    
+    function saveToSheet() {
+      const average = Math.round(attempts.reduce((a, b) => a + b, 0) / attempts.length);
+      const results = {
+        times: attempts,
+        average: average
+      };
+      
+      document.getElementById('message').textContent = 'Saving...';
+      
+      google.script.run
+        .withSuccessHandler(function(response) {
+          document.getElementById('message').textContent = response;
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('message').textContent = 'Error: ' + error;
+          document.getElementById('message').style.color = '#e74c3c';
+        })
+        .saveResults(results);
+    }
+  </script>
+</body>
+</html>
